@@ -189,6 +189,19 @@ def report_integration_status_branch(db, metadata, handled_shas, branch, conflic
                 branch_name = branch_name_pattern % affected_branch
                 report_integration_status_sha(metadata.path, merge_base, branch_name, fixedby_sha)
 
+        # Check if this commit has been fixed as well and, if so, report it
+        reported = [fixedby_sha]
+        for fixes in util.get_subsequent_fixes(db, fixedby_sha):
+            for fix in fixes:
+                if fix not in reported:
+                    if reported == [fixedby_sha]:
+                        print('    Fixed by:')
+                    reported += [fix]
+                    q = """SELECT description FROM linux_upstream WHERE sha = %s"""
+                    c.execute(q, [fix])
+                    description, = c.fetchone()
+                    print('      %s ("%s")' % (fix, description))
+
 
 @util.cloud_sql_proxy_decorator
 @util.preliminary_check_decorator(False)
