@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections import defaultdict
 
 import MySQLdb
 import common
@@ -23,6 +24,51 @@ import git_interface
 # Constant representing number CL's we want created on single new missing patch run
 NEW_CL_DAILY_LIMIT_PER_STABLE_BRANCH = 2
 NEW_CL_DAILY_LIMIT_PER_BRANCH = 1
+
+
+def build_ordered_fixes_map(db, fixer_upstream_sha):
+    """Recursively builds a Dictionary of fixes for a fixer upstream sha.
+
+    Table will be following format given fixer_upstream_sha A:
+    {'A': ['B','C', 'H'],
+     'B': ['D', 'E'],
+     'C': ['F','G'],
+     'D': [],
+     'E': ['H'],
+     'F': [],
+     'G': [],
+     'H': []
+    }  where B Fixes A, C fixes A, D Fixes B, E Fixes B, etc.
+
+    This would end up return a list
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    Note that H is a fix for A but is scheduled till after E since it also fixes E
+
+    TODO(*): modify this to use common table expressions (CTE) to avoid
+        building dependency table in python. Changing it to use CTE will
+        remove the use of this function.
+        Note: This change is blocked by infra: It requires mysql >= 8.0, but
+        CloudSQL currently only supports mysql version 5.7.
+    """
+    fixes = defaultdict(0)
+    fixes[fixer_upstream_sha] = 0
+    iteration = 0
+    new_shas = set(fixer_upstream_sha)
+
+    while len(new_shas) != 0
+        iteration += 1
+        seen_shas = set(fixes.keys())
+        fixes_for_new_shas = cloudsql_interface.upstream_fixes_for_shas(db, list(new_shas))
+        for sha in fixes_for_new_shas:
+            # if new fixes fix previous fixes then we want to grab them last
+            fixes[sha] = max(fixes[sha], iteration)
+        new_shas = set(fixes_for_new_shas) - set(seen_shas)
+
+    # sort fixes into list
+    fixing_shas = list(fixes.items()).sort(key=lambda x: x[1])
+    # remove order information
+    fixing_shas = [sha for sha in fixing_shas]
+    return fixing_shas
 
 
 def upstream_sha_to_kernel_sha(db, chosen_table, branch, upstream_sha):
